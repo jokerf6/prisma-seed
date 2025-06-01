@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
+import { getPrisma } from "../../lib/prismaClient";
 
 const CONFIG_PATH = path.join(process.cwd(), "db-config.json");
 const ENV_PATH = path.join(process.cwd(), ".env");
@@ -32,6 +33,7 @@ export default function handler(req, res) {
   }
 
   if (req.method === "GET") {
+    getPrisma();
     if (!fs.existsSync(CONFIG_PATH))
       return res.status(404).json({ error: "لا يوجد إعداد" });
 

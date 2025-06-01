@@ -1,4 +1,951 @@
-datasource db {
+
+    generator client {
+  provider        = "prisma-client-js"
+}
+    
+    datasource db {
     provider = "mysql"
     url      = env("DB_URL")
+}
+model Addon {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+symbol String
+image String
+isActive Boolean @default(true)
+deletedAt DateTime?
+// Direct Relations
+Product Product @relation(name: "AddonToProduct", fields: [productId], references: [symbol])
+productId String
+Tax Tax @relation(name: "AddonToTax", fields: [taxId], references: [id])
+taxId Int
+Source Source @relation(name: "AddonToSource", fields: [sourceId], references: [id])
+sourceId Int
+ReelState ReelState? @relation(fields: [reelStateId], references: [id])
+reelStateId Int?
+AddonPeriod AddonPeriod[]
+ReservationAddons ReservationAddons[]
+@@map("addon")
+}
+
+model AddonPeriod {
+id Int @id @default(autoincrement())
+// Normal Fields
+startDate DateTime @map("start_date")
+endDate DateTime @map("end_date")
+minResidencePeriod Int @map("min_residence_period")
+maxResidencePeriod Int @map("max_residence_period")
+// Direct Relations
+Residence Residence @relation(name: "AddonPriceToResidence", fields: [residenceId], references: [id])
+residenceId Int
+Addon Addon @relation(fields: [addonId], references: [id])
+addonId Int
+// Direct Relations
+AddonDayPrice AddonDayPrice[]
+@@map("addon_period")
+}
+
+model AddonDayPrice {
+id Int @id @default(autoincrement())
+// Normal Fields
+price Int
+// Direct Relations
+day DAYS
+// Direct Relations
+AddonPrice AddonPeriod @relation(fields: [addonPriceId], references: [id], onDelete: Cascade)
+addonPriceId Int
+@@map("addon_day_price")
+}
+
+model Permissions {
+id Int @id @default(autoincrement())
+domain String
+name String
+prefix String
+createdAt DateTime @default(now()) @map("created_at")
+deletedAt DateTime? @map("deleted_at")
+RolePermission RolePermission[]
+@@index([id, name])
+@@map("permissions")
+}
+
+model Role {
+id Int @id @default(autoincrement())
+name String
+description String @db.Text
+createdAt DateTime @default(now()) @map("created_at")
+deletedAt DateTime? @map("deleted_at")
+active Boolean @default(true)
+RolePermission RolePermission[]
+Sessions Sessions[]
+User User[]
+@@index([id])
+@@map("roles")
+}
+
+model RolePermission {
+role Int
+permission Int
+deletedAt DateTime? @map("deleted_at")
+Role Role @relation(fields: [role], references: [id], onDelete: Cascade)
+Permission Permissions @relation(fields: [permission], references: [id], onDelete: Cascade)
+@@id([role, permission])
+@@index([role, permission])
+@@map("role_permissions")
+}
+
+model Bill {
+id Int @id @default(autoincrement())
+image String @default("")
+address String @default("")
+start String @default("")
+indexNumber String @default("") @map("index_number")
+end String @default("")
+creditAndSequenceNoticeTitle Boolean @default(true) @map("credit_and_sequence_notice_title")
+companyDetails Boolean @default(true) @map("company_details")
+companyName String @default("") @map("company_name")
+firstTaxIdentificationNumber String @default("") @map("first_tax_identification_number")
+secondTaxIdentificationNumber String @default("") @map("second_tax_identification_number")
+customField String @map("custom_field") @db.Text
+language String @default("ar")
+useGuestLanguage Boolean @default(true) @map("use_guest_language")
+makePaymentWhere MakePaymentWhereStatus @default(RESERVATION) @map("make_payment_where")
+collectAfterDays Int @default(0) @map("collect_after_day")
+showRoomNumber Boolean @default(true) @map("show_room_number")
+showTax Boolean @default(true) @map("show_tax")
+useArchivedBill Boolean @default(true) @map("use_archived_bill")
+useGuestNumber Boolean @default(true) @map("use_guest_number")
+showDetailsOptions Boolean @default(true) @map("show_details_options")
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+@@map("bills")
+}
+
+model Category {
+id String @id @unique
+name String
+color String
+createdAt DateTime @default(now()) @map("created_at")
+deletedAt DateTime? @map("deleted_at")
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+Products Product[]
+facilities Facility[]
+@@map("category")
+}
+
+model Country {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+// Direct Relations
+cities City[] @relation("CityToCountry")
+houses House[] @relation("HouseToCountry")
+ReelState ReelState[]
+Group Group[]
+Docs Docs[]
+guests Guest[] @relation("GuestToCountry")
+@@map("country")
+}
+
+model City {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+// Direct Relations
+Country Country @relation(name: "CityToCountry", fields: [countryId], references: [id])
+countryId Int
+// Direct Relations
+states State[] @relation("StateToCity")
+houses House[] @relation("HouseToCity")
+ReelState ReelState[]
+Group Group[]
+guests Guest[] @relation("GuestToCity")
+@@map("city")
+}
+
+model State {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+// Direct Relations
+City City @relation(name: "StateToCity", fields: [cityId], references: [id])
+cityId Int
+// Direct Relations
+houses House[] @relation("HouseToState")
+ReelState ReelState[]
+Group Group[]
+@@map("state")
+}
+
+model Currency {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+updateAutomatic Boolean @map("update_automatic")
+showInBill Boolean @map("show_in_bill")
+price Float
+// Direct Relations
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+settings Settings[] @relation("SettingsToCurrency")
+@@map("currency")
+}
+
+model CustomField {
+id String @id
+// Normal Fields
+name String
+type InputType
+required Boolean
+maximumCharacter Int
+showIn ShowInType
+// Direct Relations
+ReelState ReelState? @relation(fields: [reelStateId], references: [id])
+reelStateId Int?
+ReservationCustomFields ReservationCustomFields[]
+@@map("custom_field")
+}
+
+model Deposit {
+id Int @id @default(autoincrement())
+// Normal Fields
+type DepositType
+commission Int?
+fixedNumber Int? @map("fixed_number")
+tax Boolean
+// Direct Relations
+ReelState ReelState @relation("depositToReelState", fields: [reelStateId], references: [id])
+reelStateId Int
+@@map("deposit")
+}
+
+model Document {
+id Int @id @default(autoincrement())
+name String
+path String
+lastOpen DateTime @default(now())
+source String
+type String
+reelStateId Int
+reelState ReelState @relation(fields: [reelStateId], references: [id])
+@@map("document")
+}
+
+model Email {
+id Int @id @default(autoincrement())
+template String @map("template_en")
+subject String @default("subject") @map("subject_en")
+keys Json
+isActive Boolean @default(true) @map("is_active")
+createdAt DateTime @default(now()) @map("created_at")
+updatedAt DateTime? @updatedAt @map("updated_at")
+deletedAt DateTime? @map("deleted_at")
+@@map("emails")
+}
+
+model Facility {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+active Boolean @default(true)
+bestPopular Boolean @default(false) @map("best_popular")
+// Direct Relations
+Category Category? @relation(fields: [categoryId], references: [id])
+categoryId String?
+ResidenceFacility ResidenceFacility[]
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+@@map("facility")
+}
+
+model Group {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+active Boolean
+type GroupType
+transactionType TransactionType @map("transaction_type")
+sourceId Int
+address String
+note String
+createdAt DateTime @default(now())
+// Direct Relations
+Source Source @relation("sourceToGroup", fields: [sourceId], references: [id])
+ReelState ReelState @relation("GroupToReelState", fields: [reelStateId], references: [id])
+reelStateId Int
+City City @relation(fields: [cityId], references: [id])
+cityId Int
+Country Country @relation(fields: [countryId], references: [id])
+countryId Int
+state State @relation(fields: [stateId], references: [id])
+stateId Int
+@@map("group")
+}
+
+model Guest {
+id Int @id @default(autoincrement())
+// Normal Fields
+firstName String @map("first_name")
+lastName String @map("last_name")
+zipCode String @map("zip_code")
+birthDate DateTime @map("birth_date")
+image String @default("default.png")
+email String
+phone String
+male Boolean
+reservationOwner Boolean @default(false)
+// Direct Relations
+Country Country @relation(name: "GuestToCountry", fields: [countryId], references: [id])
+countryId Int @map("country_id")
+// Direct Relations
+City City @relation(name: "GuestToCity", fields: [cityId], references: [id])
+cityId Int @map("city_id")
+Reservation Reservation @relation(fields: [reservationId], references: [id])
+reservationId Int @map("reservation_id")
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+Docs Docs[]
+@@map("guest")
+}
+
+model Docs {
+id Int @id @default(autoincrement())
+// Normal Fields
+type DocsType
+number String
+creationDate DateTime @map("creation_date")
+expirationDate DateTime @map("expiration_date")
+// Direct Relations
+Country Country @relation(fields: [countryId], references: [id])
+countryId Int @map("country_id")
+// Direct Relations
+Guest Guest @relation(fields: [guestId], references: [id])
+guestId Int @map("guest_id")
+@@map("docs")
+}
+
+model House {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+type HouseType
+phone String
+houseEmail String @map("house_email")
+email String
+firstName String @map("first_name")
+lastName String @map("last_name")
+address String
+number String
+zipCode String @map("zip_code")
+lat Float
+lng Float
+image String
+printImage String
+description String
+// Direct Relations
+Country Country @relation(name: "HouseToCountry", fields: [countryId], references: [id])
+countryId Int
+City City @relation(name: "HouseToCity", fields: [cityId], references: [id])
+cityId Int
+State State @relation(name: "HouseToState", fields: [stateId], references: [id])
+stateId Int
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+@@map("house")
+}
+
+model HouseAccount {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+status HouseAccountStatus @default(OPEN)
+userId Int?
+createdAt DateTime @default(now()) @map("created_at")
+// Direct Relations
+User User? @relation(fields: [userId], references: [id])
+reelStateId Int
+reelState ReelState @relation(fields: [reelStateId], references: [id])
+@@map("house_account")
+}
+
+model Logs {
+id Int @id @default(autoincrement())
+userId Int
+body String
+method String
+endPoint String
+createdAt DateTime @default(now())
+User User @relation(fields: [userId], references: [id])
+@@map("log")
+}
+
+model PaymentSettings {
+id Int @id @default(1) @map("id")
+bankTransfer Boolean @default(false) @map("bank_transfer")
+paypal Boolean @default(false)
+bankDetails BankTransfer? @relation(fields: [bankTransferId], references: [id], onDelete: Cascade)
+paypalDetails Paypal? @relation(fields: [paypalId], references: [id], onDelete: Cascade)
+bankTransferId Int? @unique
+paypalId Int? @unique
+@@unique([id])
+// Ensures only one row exists
+@@map("payment_settings")
+}
+
+model CreditCard {
+id Int @id @default(autoincrement())
+// Normal Fields
+type CreditCardsType
+directPaymentAndDashboard Boolean @map("direct_payment_and_dashboard")
+reservations Boolean
+// Direct Relations
+@@map("credit_card")
+}
+
+model Paypal {
+id Int @id @default(autoincrement())
+email String @unique
+symbol String
+firstName String @map("first_name")
+lastName String @map("last_name")
+PaymentSettings PaymentSettings?
+paymentSettingsId Int? @unique
+@@map("paypal")
+}
+
+model BankTransfer {
+id Int @id @default(autoincrement())
+description String?
+reservations Boolean @default(true)
+directPaymentAndDashboard Boolean @default(true) @map("direct_payment_and_dashboard")
+PaymentSettings PaymentSettings?
+paymentSettingsId Int? @unique
+@@map("bank_transfer")
+}
+
+model Plan {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+description String
+priceBeforeDiscount Int @map("price_before_discount")
+priceAfterDiscount Int @map("price_after_discount")
+freeTier Boolean @default(false) @map("free_tier")
+mostPopular Boolean @default(false) @map("most_popular")
+// Direct Relations
+features PlanFeature[]
+@@map("plan")
+}
+
+model Feature {
+id Int @id @default(autoincrement())
+name String @unique
+plans PlanFeature[]
+@@map("feature")
+}
+
+model PlanFeature {
+id Int @id @default(autoincrement())
+planId Int @map("plan_id")
+featureId Int @map("feature_id")
+value String?
+plan Plan @relation(fields: [planId], references: [id])
+feature Feature @relation(fields: [featureId], references: [id])
+@@unique([planId, featureId])
+}
+
+model Policy {
+id Int @id @default(autoincrement())
+policy String @db.Text
+startTime DateTime @map("start_time") @db.Time
+endTime DateTime @map("end_time") @db.Time
+allowLateLeave Boolean @map("allow_late_leave")
+lateLeaveTime DateTime @map("late_leave_time") @db.Time
+lateLeaveFee Int? @map("late_leave_fee")
+lateLeaveFeeType LateLeaveFeeType? @map("late_leave_fee_type")
+lateLeaveFeePercentage Int? @map("late_leave_fee_Percentage")
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+@@map("policy")
+}
+
+model Prices {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+startDate DateTime @map("start_date")
+endDate DateTime @map("end_date")
+minDuration Int @map("min_duration")
+maxDuration Int @map("max_duration")
+closedWhenArrive Boolean @map("closed_when_arrive")
+closedWhenLeave Boolean @map("closed_when_leave")
+// Direct Relations
+ReelState ReelState @relation(name: "PricesToReelState", fields: [reelStateId], references: [id])
+reelStateId Int
+Residence Residence @relation(name: "PricesToResidence", fields: [residenceId], references: [id])
+residenceId Int
+DayPrice DayPrice[]
+@@map("prices")
+}
+
+model DayPrice {
+id Int @id @default(autoincrement())
+// Normal Fields
+price Int
+// Direct Relations
+day DAYS
+Prices Prices @relation(fields: [pricesId], references: [id])
+pricesId Int
+@@map("day_price")
+}
+
+model Product {
+symbol String @id @unique
+// Normal Fields
+name String
+type String
+meals String
+sku String
+description String @db.Text
+requiredDescription Boolean @map("required_description")
+price Float
+free Boolean
+quantity Int
+reorderLimit Int @map("reorder_limit")
+stopOrderWhenQuantity Int @map("stop_order_when_quantity")
+deletedAt DateTime?
+// Direct Relations
+Category Category @relation(fields: [categoryId], references: [id])
+categoryId String
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+Tax Tax @relation(name: "ProductToTax", fields: [taxId], references: [id])
+taxId Int
+addons Addon[] @relation("AddonToProduct")
+@@map("product")
+}
+
+model ProductNotification {
+id Int @id @default(autoincrement())
+// Normal Fields
+email String?
+// Direct Relations
+User User? @relation(name: "ProductNotificationToUser", fields: [userId], references: [id])
+userId Int?
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+@@map("product_notification")
+}
+
+model ReelState {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+email String
+phone String
+website String
+address String
+zipCode String @map("zip_code")
+lat Float
+lng Float
+image String
+printImage String @map("print_image")
+description String
+// Direct Relations
+City City @relation(fields: [cityId], references: [id])
+cityId Int
+Country Country @relation(fields: [countryId], references: [id])
+countryId Int
+state State @relation(fields: [stateId], references: [id])
+stateId Int
+ReelStateType ReelStateType @relation(name: "ReelStateToReelStateType", fields: [reelStateTypeId], references: [id])
+reelStateTypeId Int
+// Direct Relations
+User User @relation(fields: [userId], references: [id])
+userId Int
+Source Source[] @relation("sourceToReelState")
+Group Group[] @relation("GroupToReelState")
+Bill Bill[]
+ThirdSource ThirdSource[] @relation("ThirdSourceToReelState")
+CurrentReelState User[] @relation("UserToCurrentReelState")
+Deposit Deposit[] @relation("depositToReelState")
+Policy Policy[]
+Facility Facility[]
+Tax Tax[]
+Currency Currency[]
+Document Document[]
+Residence Residence[]
+House House[]
+Product Product[]
+HouseAccount HouseAccount[]
+prices Prices[] @relation("PricesToReelState")
+settings Settings?
+Addon Addon[]
+Category Category[]
+ProductNotification ProductNotification[]
+CustomField CustomField[]
+Reservation Reservation[]
+Guest Guest[]
+@@map("reel_state")
+}
+
+model ReelStateType {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+User User @relation(fields: [userId], references: [id])
+userId Int
+// Direct Relations
+reelStates ReelState[] @relation("ReelStateToReelStateType")
+@@map("reel_state_type")
+}
+
+model Reservation {
+id Int @id @default(autoincrement())
+// Normal Fields
+startDate DateTime @map("start_date")
+endDate DateTime @map("end_date")
+numberOfChildren Int @map("number_of_children")
+numberOfAdults Int @map("number_of_adults")
+estimationArrivalTimeInMinutes Int @map("estimation_arrival_time_in_minutes")
+totalPrice Float @map("total_price")
+paid Float @default(0)
+createdAt DateTime @default(now()) @map("created_at")
+startedAt DateTime? @map("started_at")
+finishedAt DateTime? @map("finished_at")
+deletedAt DateTime? @map("deleted_at")
+numberOfNights Int @map("number_of_nights")
+roomNumber Int @map("room_number")
+compliment Boolean @default(false)
+status ReservationStatus @default(CONFIRMED)
+// Direct Relations
+Residence Residence @relation(name: "ReservationToResidence", fields: [residenceId], references: [id])
+residenceId Int @map("residence_id")
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+ReservationAddons ReservationAddons[]
+ReservationCustomFields ReservationCustomFields[]
+Guests Guest[]
+@@map("reservation")
+}
+
+model ReservationAddons {
+// Direct Relations
+Reservation Reservation @relation(fields: [reservationId], references: [id])
+reservationId Int @map("reservation_id")
+Addon Addon @relation(fields: [addonId], references: [id])
+addonId Int @map("addon_id")
+@@id([reservationId, addonId])
+@@map("reservation_addons")
+}
+
+model ReservationCustomFields {
+// Direct Relations
+Reservation Reservation @relation(fields: [reservationId], references: [id])
+reservationId Int @map("reservation_id")
+CustomField CustomField @relation(fields: [customFieldId], references: [id])
+customFieldId String @map("custom_field_id")
+value String
+@@id([reservationId, customFieldId])
+}
+
+model Residence {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+shortcut String
+type ResidenceType
+virtual Boolean?
+rooms Int?
+maximumReservation Int? @map("maximum_reservation")
+includeAdults Int? @map("include_adults")
+includeChildren Int? @map("include_children")
+numberOfSharingRooms Int? @map("number_of_sharing_rooms")
+numberOfFamilyInRoom Int? @map("number_of_family_in_room")
+description String
+image String
+deletedAt DateTime?
+otherImage String @map("other_image")
+ResidenceFacility ResidenceFacility[]
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+prices Prices[] @relation("PricesToResidence")
+AddonPeriods AddonPeriod[] @relation("AddonPriceToResidence")
+reservations Reservation[] @relation("ReservationToResidence")
+ResidenceAvailability ResidenceAvailability[]
+@@map("residence")
+}
+
+model ResidenceAvailability {
+id Int @id @default(autoincrement())
+// Direct Relations
+Residence Residence @relation(fields: [residenceId], references: [id])
+residenceId Int @map("residence_id")
+// Normal Fields
+type ResidenceAvailabilityType @default(HIDDEN_DATES)
+startDate DateTime @map("start_date")
+endDate DateTime @map("end_date")
+reason String @db.Text
+@@map("residence_availability")
+}
+
+model ResidenceFacility {
+Facility Facility @relation(fields: [facilityId], references: [id])
+facilityId Int
+Residence Residence @relation(fields: [residenceId], references: [id])
+residenceId Int
+@@id([residenceId, facilityId])
+}
+
+model Sessions {
+jti String @id @default(uuid())
+userId Int @map("user_id")
+device String @default("unknown")
+valid Boolean @default(true)
+role Int
+fcmToken String? @map("fcm_token")
+socketId String? @map("socket_id")
+outdated Boolean @default(false)
+createdAt DateTime @default(now()) @map("created_at")
+type SessionType @default(ACCESS)
+User User @relation(fields: [userId], references: [id], onDelete: Cascade)
+Role Role @relation(fields: [role], references: [id], onDelete: Cascade)
+@@index([userId])
+@@map("sessions")
+}
+
+model Settings {
+id Int @id @default(autoincrement())
+// Normal Fields
+lang String @default("")
+appTemplateDate String @default("") @map("app_template_date")
+appTemplateTime String @default("") @map("app_template_time")
+automaticExtend Boolean @default(false) @map("automatic_extend")
+currencyTemplate String @default("") @map("currency_template")
+notArriveAutomatic Boolean @default(false) @map("not_arrive_automatic")
+overBooking Boolean @default(false) @map("over_booking")
+automaticAssign Boolean @default(false) @map("automatic_assign")
+collectAllBeforeArrive Boolean @default(false) @map("collect_all_before_arrive")
+// Direct Relations
+Currency Currency? @relation(name: "SettingsToCurrency", fields: [currencyId], references: [id])
+currencyId Int?
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int @unique
+@@map("settings")
+}
+
+model Source {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+active Boolean @default(true)
+reelStateId Int
+deletedAt DateTime?
+// Direct Relations
+Tax Tax @relation(name: "sourceToTax", fields: [taxId], references: [id])
+taxId Int
+ReelState ReelState @relation(name: "sourceToReelState", fields: [reelStateId], references: [id])
+Group Group[] @relation("sourceToGroup")
+addons Addon[] @relation("AddonToSource")
+@@map("source")
+}
+
+model Tax {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String @default("")
+type TaxStatus @default(TAX)
+reservation Boolean @default(false) @map("reservation")
+element Boolean @default(false) @map("element")
+symbol String
+included Boolean @default(false)
+price Float @default(0)
+deletedAt DateTime?
+// Direct Relations
+ReelState ReelState @relation(fields: [reelStateId], references: [id])
+reelStateId Int
+products Product[] @relation("ProductToTax")
+Sources Source[] @relation("sourceToTax")
+thirdsources ThirdSource[] @relation("ThirdSourceToTax")
+addons Addon[] @relation("AddonToTax")
+@@map("tax")
+}
+
+model Template {
+id Int @id @default(autoincrement())
+name String
+text String @db.Text
+@@map("template")
+}
+
+model ThirdSource {
+id Int @id @default(autoincrement())
+// Normal Fields
+name String
+active Boolean @default(true)
+type ThirdSourceType
+commission Int
+// Direct Relations
+Tax Tax @relation(name: "ThirdSourceToTax", fields: [taxId], references: [id])
+taxId Int
+ReelState ReelState @relation(name: "ThirdSourceToReelState", fields: [reelStateId], references: [id])
+reelStateId Int
+@@map("third_source")
+}
+
+model Translation {
+id Int @id @default(autoincrement())
+language String @default("en")
+rowId String?
+table String
+key String
+value String
+@@unique([language, table, key, rowId])
+@@map("translation")
+}
+
+model User {
+id Int @id @default(autoincrement())
+firstName String @map("first_name")
+lastName String @map("last_name")
+email String @unique
+password String
+google Boolean @default(false)
+active Boolean @default(true)
+image String @default("uploads/default.png")
+deletedAt DateTime? @map("deleted_at")
+createdAt DateTime @default(now()) @map("created_at")
+roleId Int
+CurrentReelState ReelState? @relation(name: "UserToCurrentReelState", fields: [currentReelStateId], references: [id])
+currentReelStateId Int? @map("current_reel_state_id")
+Sessions Sessions[]
+Logs Logs[]
+HouseAccount HouseAccount[]
+Role Role @relation(fields: [roleId], references: [id])
+productNotifications ProductNotification[] @relation("ProductNotificationToUser")
+ReelState ReelState[]
+ReelStateType ReelStateType[]
+@@map("user")
+}
+enum DepositType {
+  COMMISSION
+  FIXED_NUMBER
+  FIRST_DAY
+  NONE
+}
+
+enum SessionType {
+  ACCESS
+  FORGET_PASSWORD
+  VISITOR
+}
+
+enum HouseAccountStatus {
+  OPEN
+  CLOSE
+}
+
+enum CreditCardsType {
+  VISA
+  MASTER_CARD
+  AMERICAN_EXPRESS
+  DINERS_CLUB
+}
+
+enum MakePaymentWhereStatus {
+  RESERVATION
+  PAYMENT
+  MANUAL
+}
+
+enum TaxStatus {
+  TAX
+  FEES
+}
+
+enum availableAtStatus {
+  RESERVATION
+  ELEMENTS
+}
+
+enum HouseType {
+  HOTEL
+}
+
+enum InputType {
+  TEXT
+  TEXTAREA
+}
+
+enum ShowInType {
+  BILL
+  REGISTER_CARD
+  ONLINE_RESERVATION
+  DIRECT_RESERVATION
+}
+
+enum GuestTypes {
+  Arrived
+  Left
+  Exist
+}
+
+enum GroupType {
+  Group
+  Company
+  Agency
+  Trader
+}
+
+enum TransactionType {
+  Reservation
+}
+
+enum DocsType {
+  ID
+  PASSPORT
+}
+
+enum LateLeaveFeeType {
+  FIXED
+  PERCENTAGE
+}
+
+enum DAYS {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum ReservationStatus {
+  PENDING
+  WAITING_LIST
+  STARTED
+  CONFIRMED
+  CANCELLED
+  FINISHED
+  NOT_ARRIVE
+}
+
+enum ResidenceAvailabilityType {
+  OUT_OF_SERVICE
+  HIDDEN_DATES
+}
+
+enum ResidenceType {
+  PRIVATE
+  FAMILY
+}
+
+enum ThirdSourceType {
+  TRADER
+  AGENCY
+  FOUNDER
+  TRAVEL_AGENCY
 }

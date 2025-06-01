@@ -1,118 +1,216 @@
-import { useState } from "react";
+import { da, faker } from "@faker-js/faker";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import Model from "./components/models";
+import Structure from "./components/structure";
+import { IsEnum } from "../functions/IsEnum";
+import { generateFakeDataFunction } from "../functions/generateFake";
 
 export default function Home() {
-  const [dirPath, setDirPath] = useState("");
-  const [models, setModels] = useState([]);
+  const [rows, setRows] = useState(0);
+
   const [selectedModel, setSelectedModel] = useState(null);
   const [modelData, setModelData] = useState([]);
+  const [enums, setEnums] = useState([]);
+  const [generatedRows, setGeneratedRows] = useState(0);
+  const router = useRouter();
 
-  const handleLoad = async () => {
-    const res = await fetch("/api/load-model", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dirPath }),
+  const [formData, setFormData] = useState({});
+
+  const generateFakeData = (formData) => {
+    const data = {};
+    const fields =
+      (selectedModel &&
+        selectedModel.fields.filter(
+          (f) =>
+            f.hasOwnProperty("name") &&
+            f.hasOwnProperty("type") &&
+            !f.attributes.includes("relation")
+        )) ||
+      [];
+    fields.forEach((field) => {
+      console.log("Processing field:", field);
+      if (formData && formData[field.name]) {
+        data[field.name] = formData[field.name];
+        return;
+      }
+      if (
+        field.attributes.includes("id") &&
+        field.attributes.includes("default")
+      ) {
+        console.log(
+          `Skipping field ${field.name} because it has both 'id' and 'default' attributes`
+        );
+        data[field.name] = undefined;
+        return;
+      }
+      data[field.name] = generateFakeDataFunction(field);
     });
-    const data = await res.json();
-    setModels(data);
-    setSelectedModel(null);
-    setModelData([]);
+
+    return data;
   };
 
-  const loadData = async () => {
-    if (!selectedModel) return;
-
-    const res = await fetch(`/api/data/${selectedModel.name}`);
-    console.log(res);
-    const data = await res.json();
-    setModelData(data);
+  const handleFieldChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleSubmit = async () => {
+    let result;
+    for (let i = 0; i < generatedRows; i++) {
+      const data = generateFakeData(formData);
+      console.log("current Data:", data);
+      const cleanedData = {};
+      const fields =
+        (selectedModel &&
+          selectedModel.fields.filter(
+            (f) =>
+              f.hasOwnProperty("name") &&
+              f.hasOwnProperty("type") &&
+              !f.attributes.includes("relation")
+          )) ||
+        [];
+      fields.forEach((field) => {
+        const rawValue = data[field.name];
+        const fieldType = field.type.toLowerCase();
+        if (rawValue === undefined || rawValue === null) {
+          console.warn(`Field ${field.name} is undefined or null, skipping.`);
+          return;
+        }
+        switch (fieldType) {
+          case "int":
+            cleanedData[field.name] = parseInt(rawValue);
+            break;
+          case "float":
+          case "decimal":
+            cleanedData[field.name] = parseFloat(rawValue);
+            break;
+          case "boolean":
+            cleanedData[field.name] = rawValue === "true" || rawValue === true;
+            break;
+          case "date":
+          case "datetime":
+            cleanedData[field.name] = new Date(rawValue);
+            break;
+          default:
+            cleanedData[field.name] = rawValue;
+        }
+      });
+      const res = await fetch("/api/insert-model", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modelName: selectedModel.name,
+          data: cleanedData,
+          generatedRows,
+        }),
+      });
+
+      result = await res.json();
+    }
+    alert("✅ Response: " + JSON.stringify(result));
+  };
+  useEffect(async () => {
+    const res2 = await fetch(`/api/enum`);
+    const data2 = await res2.json();
+    setEnums(data2);
+    // generateFakeData();
+  }, []);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: "Arial" }}>
-      <div style={{ width: "30%", padding: 20, background: "#f2f2f2" }}>
-        <h2>📂 Prisma Schema Directory</h2>
-        <input
-          type="text"
-          value={dirPath}
-          onChange={(e) => setDirPath(e.target.value)}
-          placeholder="مثلاً: /media/fahd/base2/backend/prisma"
-          style={{ width: "100%", padding: "8px", marginBottom: 10 }}
-        />
-        <button onClick={handleLoad} style={{ padding: "8px 12px" }}>
-          تحميل الموديلات
-        </button>
-        <ul style={{ marginTop: 20, listStyle: "none", padding: 0 }}>
-          {models.map((model, idx) => (
-            <li
-              key={idx}
-              onClick={() => {
-                setSelectedModel(model);
-                setModelData([]); // reset model data when switching
-              }}
-              style={{
-                cursor: "pointer",
-                margin: "10px 0",
-                fontWeight:
-                  selectedModel?.name === model.name ? "bold" : "normal",
-              }}
-            >
-              📦 {model.name}
-            </li>
-          ))}
-        </ul>
-      </div>
-
+      <Model
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
+        setModelData={setModelData}
+        setRows={setRows}
+      />
       <div style={{ flex: 1, padding: 20 }}>
-        {selectedModel ? (
-          <>
-            <h2>🧱 Model: {selectedModel.name}</h2>
-            <table border="1" cellPadding="8" cellSpacing="0">
-              <thead>
-                <tr>
-                  <th>Field</th>
-                  <th>Type</th>
-                  <th>Optional</th>
-                  <th>Attributes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedModel.fields
-                  .filter(
-                    (f) => f.hasOwnProperty("name") && f.hasOwnProperty("type")
-                  )
-                  .map((field, idx) => (
-                    <tr key={idx}>
-                      <td>{field.name}</td>
-                      <td>{field.type}</td>
-                      <td>{field.isOptional ? "✅" : "❌"}</td>
-                      <td>{field.attributes.join(", ")}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-
-            <div style={{ marginTop: 30 }}>
-              <h3>📄 بيانات الموديل</h3>
-              <button onClick={loadData} style={{ marginBottom: 10 }}>
-                تحميل البيانات
-              </button>
-              {modelData.length > 0 ? (
-                <ul>
-                  {modelData.map((item, idx) => (
-                    <li key={idx}>
-                      <pre>{JSON.stringify(item, null, 2)}</pre>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>لا توجد بيانات حتى الآن.</p>
-              )}
-            </div>
-          </>
-        ) : (
-          <p>اختر موديل لعرض التفاصيل.</p>
+        {selectedModel && (
+          <Structure selectedModel={selectedModel} rows={rows} />
         )}
+        <h3>📝 تعبئة بيانات</h3>
+        <input
+          type="number"
+          value={generatedRows || 0}
+          onChange={(e) => setGeneratedRows(e.target.value)}
+          placeholder="عدد الصفوف المراد توليدها"
+          style={{ padding: "4px", width: "300px" }}
+          min="1"
+          max="1000"
+        />
+        <div style={{ marginTop: 10 }}>
+          {selectedModel &&
+            selectedModel.fields
+              .filter(
+                (f) =>
+                  f.hasOwnProperty("name") &&
+                  f.hasOwnProperty("type") &&
+                  !f.attributes.includes("relation")
+              )
+              .map((field, idx) => (
+                <div key={idx} style={{ margin: "10px 0" }}>
+                  {/* {IsEnum(field) && (
+                    <pre
+                      style={{
+                        color: "blue",
+                        fontWeight: "bold",
+                        marginRight: "5px",
+                      }}
+                    >
+                      {JSON.stringify(
+                        enums.find((e) => e.name === field.type),
+                        null,
+                        2
+                      )}
+                    </pre>
+                  )} */}
+                  <label>{field.name}: </label>
+                  {IsEnum(field) ? (
+                    <select
+                      value={formData[field.name] || ""}
+                      onChange={(e) =>
+                        handleFieldChange(field.name, e.target.value)
+                      }
+                      style={{ padding: "4px", width: "300px" }}
+                    >
+                      <option value="">Select {field.name}</option>
+                      {enums
+                        .filter((attr) => attr.name === field.type)
+                        .flatMap((attr) =>
+                          attr.values.map((value, index) => (
+                            <option key={index} value={value}>
+                              {value}
+                            </option>
+                          ))
+                        )}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData[field.name] || ""}
+                      onChange={(e) =>
+                        handleFieldChange(field.name, e.target.value)
+                      }
+                      style={{ padding: "4px", width: "300px" }}
+                    />
+                  )}
+                </div>
+              ))}
+        </div>
+        <button onClick={handleSubmit}>💾 إرسال الداتا</button>
       </div>
+      <button
+        onClick={() => router.push("/config")}
+        style={{
+          direction: "ltr",
+          height: "40px",
+          width: "100px",
+          fontSize: "16px",
+          cursor: "pointer",
+        }}
+      >
+        Config
+      </button>
     </div>
   );
 }

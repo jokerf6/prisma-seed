@@ -10,14 +10,13 @@ export default async function handler(req, res) {
 
   try {
     const data = req.body;
+    console.log(data);
     const result = await prisma[model].create({ data });
     res.status(200).json(result);
   } catch (err) {
-    res
-      .status(400)
-      .json({
-        error: `فشل في إضافة البيانات في ${model}`,
-        details: err.message,
-      });
+    res.status(400).json({
+      error: `فشل في إضافة البيانات في ${model}`,
+      details: err.message,
+    });
   }
 }

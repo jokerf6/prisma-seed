@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ConfigPage() {
   const [dbUrl, setDbUrl] = useState("");
@@ -11,8 +11,16 @@ export default function ConfigPage() {
       body: JSON.stringify({ dbUrl }),
     });
     const data = await res.json();
+    localStorage.setItem("dbUrl", dbUrl);
     setMessage(data.message || "تم الحفظ");
   };
+  useEffect(async () => {
+    // استرجاع dbUrl من localStorage لو موجود
+
+    await fetch(`/api/config`);
+    const saved = localStorage.getItem("dbUrl");
+    if (saved) setDbUrl(saved);
+  }, []);
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>

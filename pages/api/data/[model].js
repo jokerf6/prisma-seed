@@ -5,8 +5,7 @@ export default async function handler(req, res) {
   const prisma = getPrisma();
 
   try {
-    console.log("--------------------------------");
-    const data = await prisma[model].findMany({ take: 10 });
+    const data = await prisma[model].count();
     res.status(200).json(data);
   } catch (err) {
     res
